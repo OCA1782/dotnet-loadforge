@@ -6,6 +6,7 @@ import type {
   LoginResponse,
   MemberDto,
   MetricSnapshotDto,
+  ProjectDto,
   RunNoteDto,
   ScenarioDetailDto,
   ScenarioDto,
@@ -182,6 +183,13 @@ export function createApi(token: string | null) {
     // Scenario versions
     listScenarioVersions: (scenarioId: string) =>
       get<ScenarioVersionDto[]>(`/api/scenarios/${scenarioId}/versions`),
+
+    // Projects
+    listProjects: () => get<ProjectDto[]>("/api/projects"),
+    createProject: (name: string, description?: string, baseUrl?: string) =>
+      post<{ id: string }>("/api/projects", { name, description: description ?? null, baseUrl: baseUrl ?? null }),
+    deleteProject: (id: string) =>
+      request<void>(`/api/projects/${id}`, { method: "DELETE" }, token),
   };
 }
 

@@ -147,6 +147,16 @@ export interface WebhookDto {
   createdAt: string;
 }
 
+export interface ProjectDto {
+  id: string;
+  name: string;
+  description: string | null;
+  slug: string;
+  baseUrl: string | null;
+  scenarioCount: number;
+  createdAt: string;
+}
+
 export interface ScenarioVersionDto {
   id: string;
   versionNo: number;

@@ -6,11 +6,13 @@ import {
   BarChart3,
   BookOpen,
   FileCode2,
+  FolderOpen,
   GitCompare,
   LayoutDashboard,
   LogOut,
   Play,
   Settings,
+  ShieldCheck,
   Zap,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -27,8 +29,10 @@ export function Sidebar() {
 
   const navItems = [
     { href: "/dashboard", label: t("nav.dashboard"), icon: LayoutDashboard },
+    { href: "/projects", label: "Projeler", icon: FolderOpen },
     { href: "/scenarios", label: t("nav.scenarios"), icon: FileCode2 },
     { href: "/runs", label: t("nav.runs"), icon: Play },
+    { href: "/runs/quality-gate", label: "Quality Gate", icon: ShieldCheck },
     { href: "/reports", label: t("nav.reports"), icon: BarChart3 },
     { href: "/reports/compare", label: "Karşılaştır", icon: GitCompare },
     { href: "/guide", label: t("nav.guide"), icon: BookOpen },

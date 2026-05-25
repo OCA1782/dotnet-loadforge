@@ -23,4 +23,5 @@ public class TestRunShard : BaseEntity
     public DateTime? LastHeartbeatAt { get; set; }
 
     public string? FailReason { get; set; }
+    public int RetryCount { get; set; } = 0;
 }

@@ -36,6 +36,7 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseMiddleware<ExceptionMiddleware>();
+app.UseMiddleware<AuditLogMiddleware>();
 app.UseCors();
 
 if (app.Environment.IsDevelopment())

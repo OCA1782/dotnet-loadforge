@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>dotnet-LoadForge.Orchestrator.Worker-475d14eb-15c1-4ae5-b111-0683da1602a4</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.4" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.2" />
+    <PackageReference Include="NATS.Net" Version="2.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LoadForge.Infrastructure\LoadForge.Infrastructure.csproj" />
+    <ProjectReference Include="..\LoadForge.Persistence\LoadForge.Persistence.csproj" />
+  </ItemGroup>
+</Project>

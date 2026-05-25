@@ -1,0 +1,293 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://loadforge.io/schemas/scenario-v1.json",
+  "title": "LoadForge Scenario DSL v1",
+  "description": "Schema for LoadForge YAML/JSON load test scenario files.",
+  "type": "object",
+  "required": ["name", "config", "steps"],
+  "additionalProperties": false,
+
+  "properties": {
+
+    "version": {
+      "type": "string",
+      "description": "Schema version pin. Use '1' for the current spec.",
+      "enum": ["1"],
+      "default": "1"
+    },
+
+    "name": {
+      "type": "string",
+      "description": "Human-readable name for this scenario.",
+      "minLength": 1,
+      "maxLength": 200
+    },
+
+    "config": {
+      "type": "object",
+      "description": "Global execution parameters.",
+      "required": ["virtualUsers"],
+      "additionalProperties": false,
+      "properties": {
+
+        "virtualUsers": {
+          "type": "integer",
+          "description": "Number of concurrent virtual users.",
+          "minimum": 1,
+          "maximum": 10000
+        },
+
+        "duration": {
+          "type": "string",
+          "description": "Total test duration. Supports s, m, h suffixes.",
+          "pattern": "^[0-9]+(ms|s|m|h)$",
+          "examples": ["60s", "5m", "1h"]
+        },
+
+        "rampUp": {
+          "type": "string",
+          "description": "Linear ramp-up period before reaching full VU count.",
+          "pattern": "^[0-9]+(ms|s|m|h)$",
+          "examples": ["30s", "2m"]
+        },
+
+        "targetRps": {
+          "type": "integer",
+          "description": "Maximum requests per second across all VUs. 0 = unlimited.",
+          "minimum": 0
+        },
+
+        "thinkTime": {
+          "type": "string",
+          "description": "Pause between steps per VU. Supports ms, s, m suffixes.",
+          "pattern": "^[0-9]+(ms|s|m)$",
+          "examples": ["250ms", "1s"]
+        }
+      }
+    },
+
+    "environments": {
+      "type": "object",
+      "description": "Named environment overrides. Key is the environment name.",
+      "additionalProperties": {
+        "$ref": "#/$defs/Env"
+      }
+    },
+
+    "steps": {
+      "type": "array",
+      "description": "Ordered list of request steps executed by each VU.",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/Step"
+      }
+    }
+  },
+
+  "$defs": {
+
+    "Env": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "baseUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "Base URL prepended to relative step URLs."
+        },
+        "variables": {
+          "type": "object",
+          "description": "Key-value pairs injected as template variables.",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+
+    "Step": {
+      "type": "object",
+      "required": ["name", "request"],
+      "additionalProperties": false,
+      "properties": {
+
+        "name": {
+          "type": "string",
+          "description": "Step identifier used in metrics and logs.",
+          "minLength": 1,
+          "maxLength": 100
+        },
+
+        "protocol": {
+          "type": "string",
+          "description": "Transport protocol for this step.",
+          "enum": ["http", "grpc", "ws"],
+          "default": "http"
+        },
+
+        "request": {
+          "$ref": "#/$defs/Request"
+        },
+
+        "assertions": {
+          "type": "array",
+          "description": "Pass/fail checks applied to every response.",
+          "items": {
+            "$ref": "#/$defs/Assertion"
+          }
+        }
+      }
+    },
+
+    "Request": {
+      "type": "object",
+      "required": ["url"],
+      "additionalProperties": false,
+      "properties": {
+
+        "method": {
+          "type": "string",
+          "description": "HTTP method.",
+          "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"],
+          "default": "GET"
+        },
+
+        "url": {
+          "type": "string",
+          "description": "Absolute URL or path relative to environment baseUrl. Supports {{variable}} interpolation.",
+          "minLength": 1
+        },
+
+        "headers": {
+          "type": "object",
+          "description": "Additional HTTP headers merged with defaults.",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+
+        "body": {
+          "$ref": "#/$defs/Body"
+        },
+
+        "timeoutMs": {
+          "type": "integer",
+          "description": "Per-request timeout in milliseconds. 0 uses the engine default (30 000).",
+          "minimum": 0,
+          "default": 0
+        }
+      }
+    },
+
+    "Body": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "json": {
+          "description": "Serialised as application/json. Supports {{variable}} interpolation in string values."
+        },
+        "raw": {
+          "type": "string",
+          "description": "Raw string body. Content-Type must be set via headers."
+        }
+      }
+    },
+
+    "Assertion": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+
+        "type": {
+          "type": "string",
+          "description": "Assertion category.",
+          "enum": ["statusCode", "responseTime", "body"]
+        },
+
+        "equals": {
+          "type": "integer",
+          "description": "statusCode: exact HTTP status to expect."
+        },
+
+        "in": {
+          "type": "array",
+          "description": "statusCode: any of these HTTP statuses are accepted.",
+          "items": {
+            "type": "integer"
+          }
+        },
+
+        "lessThanMs": {
+          "type": "integer",
+          "description": "responseTime: maximum allowed latency in milliseconds.",
+          "minimum": 1
+        },
+
+        "contains": {
+          "type": "string",
+          "description": "body: substring that must appear in the response body."
+        }
+      }
+    }
+  },
+
+  "examples": [
+    {
+      "version": "1",
+      "name": "API Smoke Test",
+      "config": {
+        "virtualUsers": 5,
+        "duration": "60s",
+        "rampUp": "10s",
+        "targetRps": 0,
+        "thinkTime": "250ms"
+      },
+      "environments": {
+        "staging": {
+          "baseUrl": "https://staging.example.com",
+          "variables": {
+            "apiToken": "changeme"
+          }
+        }
+      },
+      "steps": [
+        {
+          "name": "Health Check",
+          "protocol": "http",
+          "request": {
+            "method": "GET",
+            "url": "/health",
+            "timeoutMs": 5000
+          },
+          "assertions": [
+            { "type": "statusCode", "equals": 200 },
+            { "type": "responseTime", "lessThanMs": 500 }
+          ]
+        },
+        {
+          "name": "Login",
+          "protocol": "http",
+          "request": {
+            "method": "POST",
+            "url": "/api/auth/login",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "json": {
+                "email": "test@example.com",
+                "password": "secret"
+              }
+            },
+            "timeoutMs": 10000
+          },
+          "assertions": [
+            { "type": "statusCode", "in": [200, 201] },
+            { "type": "responseTime", "lessThanMs": 1000 }
+          ]
+        }
+      ]
+    }
+  ]
+}

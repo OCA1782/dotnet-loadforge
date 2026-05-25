@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/LoadForge.Api/LoadForge.Api.csproj" />
+    <Project Path="src/LoadForge.Application/LoadForge.Application.csproj" />
+    <Project Path="src/LoadForge.Contracts/LoadForge.Contracts.csproj" />
+    <Project Path="src/LoadForge.Domain/LoadForge.Domain.csproj" />
+    <Project Path="src/LoadForge.Infrastructure/LoadForge.Infrastructure.csproj" />
+    <Project Path="src/LoadForge.Orchestrator.Worker/LoadForge.Orchestrator.Worker.csproj" />
+    <Project Path="src/LoadForge.Persistence/LoadForge.Persistence.csproj" />
+    <Project Path="src/LoadForge.Tests.Integration/LoadForge.Tests.Integration.csproj" />
+    <Project Path="src/LoadForge.Tests.Unit/LoadForge.Tests.Unit.csproj" />
+  </Folder>
+</Solution>

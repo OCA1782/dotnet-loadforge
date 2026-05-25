@@ -1,0 +1,1385 @@
+openapi: "3.1.0"
+
+info:
+  title: LoadForge API
+  version: "1.0.0"
+  description: |
+    LoadForge — modern, team-focused, cloud-native load testing platform.
+
+    **Authentication:** All endpoints (except `/api/auth/*` and `/internal/*`) require either:
+    - `Authorization: Bearer <jwt>` header
+    - `X-Api-Key: <key>` header
+
+servers:
+  - url: http://localhost:5000
+    description: Local development
+  - url: https://api.loadforge.io
+    description: Production
+
+tags:
+  - name: Auth
+  - name: Scenarios
+  - name: Test Runs
+  - name: Metrics
+  - name: Run Notes
+  - name: Members
+  - name: API Keys
+  - name: Environments
+  - name: Webhooks
+  - name: Internal
+
+# ── Security ──────────────────────────────────────────────────────────────────
+
+security:
+  - bearerAuth: []
+  - apiKeyAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+
+  schemas:
+
+    # ── Enums ─────────────────────────────────────────────────────────────────
+
+    TestRunStatus:
+      type: string
+      enum: [Pending, Queued, Running, Stopping, Completed, Failed, Cancelled]
+
+    UserRole:
+      type: string
+      enum: [Owner, Admin, Developer, Viewer, CiBot]
+
+    # ── Auth ──────────────────────────────────────────────────────────────────
+
+    RegisterRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        displayName:
+          type: string
+        organizationName:
+          type: string
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+
+    # ── Scenarios ─────────────────────────────────────────────────────────────
+
+    ScenarioDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        protocol:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        latestVersionId:
+          type: string
+          format: uuid
+          nullable: true
+        latestVersionNo:
+          type: integer
+          nullable: true
+
+    ScenarioDetailDto:
+      allOf:
+        - $ref: "#/components/schemas/ScenarioDto"
+        - type: object
+          properties:
+            content:
+              type: string
+              nullable: true
+            contentFormat:
+              type: string
+              enum: [yaml, json]
+              nullable: true
+
+    ScenarioVersionDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        versionNo:
+          type: integer
+        changeNote:
+          type: string
+          nullable: true
+        createdBy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        runCount:
+          type: integer
+
+    CreateScenarioRequest:
+      type: object
+      required: [name, content, contentFormat]
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+        projectId:
+          type: string
+          format: uuid
+        content:
+          type: string
+          description: YAML or JSON scenario DSL content
+        contentFormat:
+          type: string
+          enum: [yaml, json]
+        changeNote:
+          type: string
+
+    UpdateScenarioRequest:
+      type: object
+      required: [name, content, contentFormat]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        content:
+          type: string
+        contentFormat:
+          type: string
+          enum: [yaml, json]
+        changeNote:
+          type: string
+
+    # ── Test Runs ─────────────────────────────────────────────────────────────
+
+    TestRunDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        scenarioId:
+          type: string
+          format: uuid
+        scenarioName:
+          type: string
+        scenarioVersionId:
+          type: string
+          format: uuid
+        versionNo:
+          type: integer
+        status:
+          $ref: "#/components/schemas/TestRunStatus"
+        executionMode:
+          type: string
+        virtualUsers:
+          type: integer
+        durationSeconds:
+          type: integer
+        rampUpSeconds:
+          type: integer
+        targetRps:
+          type: integer
+          nullable: true
+        passed:
+          type: boolean
+          nullable: true
+        failReason:
+          type: string
+          nullable: true
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        summaryRps:
+          type: number
+          nullable: true
+        summaryP95Ms:
+          type: integer
+          nullable: true
+        summaryP99Ms:
+          type: integer
+          nullable: true
+        summaryErrorRate:
+          type: number
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        queuePosition:
+          type: integer
+          nullable: true
+        maxErrorRate:
+          type: number
+          nullable: true
+        maxP95Ms:
+          type: integer
+          nullable: true
+        maxP99Ms:
+          type: integer
+          nullable: true
+        isBaseline:
+          type: boolean
+
+    StartRunRequest:
+      type: object
+      required: [scenarioVersionId, executionMode, virtualUsers, durationSeconds, rampUpSeconds]
+      properties:
+        scenarioVersionId:
+          type: string
+          format: uuid
+        environmentId:
+          type: string
+          format: uuid
+        executionMode:
+          type: string
+          enum: [shared, dedicated]
+        virtualUsers:
+          type: integer
+          minimum: 1
+          maximum: 10000
+        durationSeconds:
+          type: integer
+          minimum: 1
+        rampUpSeconds:
+          type: integer
+          minimum: 0
+        targetRps:
+          type: integer
+          minimum: 0
+        maxErrorRate:
+          type: number
+          minimum: 0
+          maximum: 1
+        maxP95Ms:
+          type: integer
+          minimum: 0
+        maxP99Ms:
+          type: integer
+          minimum: 0
+
+    BulkDeleteRequest:
+      type: object
+      properties:
+        runIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          nullable: true
+          description: "Null = delete all terminal runs"
+
+    BulkDeleteResponse:
+      type: object
+      properties:
+        deleted:
+          type: integer
+
+    ForceStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [Cancelled, Failed, Completed]
+
+    # ── Metrics ───────────────────────────────────────────────────────────────
+
+    MetricSnapshotDto:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        rps:
+          type: number
+        activeVu:
+          type: integer
+        p50Ms:
+          type: integer
+        p90Ms:
+          type: integer
+        p95Ms:
+          type: integer
+        p99Ms:
+          type: integer
+        errorRate:
+          type: number
+        totalRequests:
+          type: integer
+        totalErrors:
+          type: integer
+
+    IngestMetricsRequest:
+      type: object
+      required: [runId, shardId, rps, activeVu, p50Ms, p90Ms, p95Ms, p99Ms, errorRate, totalRequests, totalErrors]
+      properties:
+        runId:
+          type: string
+          format: uuid
+        shardId:
+          type: string
+          format: uuid
+        rps:
+          type: number
+        activeVu:
+          type: integer
+        p50Ms:
+          type: integer
+        p90Ms:
+          type: integer
+        p95Ms:
+          type: integer
+        p99Ms:
+          type: integer
+        errorRate:
+          type: number
+        totalRequests:
+          type: integer
+        totalErrors:
+          type: integer
+
+    # ── Run Notes ─────────────────────────────────────────────────────────────
+
+    RunNoteDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        content:
+          type: string
+        authorId:
+          type: string
+          format: uuid
+        authorName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    AddNoteRequest:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+          maxLength: 2000
+
+    # ── Members ───────────────────────────────────────────────────────────────
+
+    MemberDto:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        email:
+          type: string
+        displayName:
+          type: string
+        role:
+          $ref: "#/components/schemas/UserRole"
+        joinedAt:
+          type: string
+          format: date-time
+        lastLoginAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    InviteRequest:
+      type: object
+      required: [email, role]
+      properties:
+        email:
+          type: string
+          format: email
+        role:
+          $ref: "#/components/schemas/UserRole"
+
+    InviteResponse:
+      type: object
+      properties:
+        invitationId:
+          type: string
+          format: uuid
+        token:
+          type: string
+        email:
+          type: string
+        role:
+          $ref: "#/components/schemas/UserRole"
+        expiresAt:
+          type: string
+          format: date-time
+
+    UpdateRoleRequest:
+      type: object
+      required: [role]
+      properties:
+        role:
+          $ref: "#/components/schemas/UserRole"
+
+    AcceptInviteRequest:
+      type: object
+      required: [displayName, password]
+      properties:
+        displayName:
+          type: string
+        password:
+          type: string
+          minLength: 8
+
+    # ── API Keys ──────────────────────────────────────────────────────────────
+
+    ApiKeyDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        keyPrefix:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastUsedAt:
+          type: string
+          format: date-time
+          nullable: true
+        isRevoked:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateApiKeyRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        scopes:
+          type: array
+          items:
+            type: string
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    CreateApiKeyResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiKeyDto"
+        - type: object
+          properties:
+            plaintextKey:
+              type: string
+              description: "Shown once. Store securely."
+
+    # ── Environments ──────────────────────────────────────────────────────────
+
+    EnvironmentDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        baseUrl:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateEnvironmentRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        baseUrl:
+          type: string
+          nullable: true
+
+    # ── Webhooks ──────────────────────────────────────────────────────────────
+
+    WebhookDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        url:
+          type: string
+        events:
+          type: array
+          items:
+            type: string
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateWebhookRequest:
+      type: object
+      required: [name, url, events]
+      properties:
+        name:
+          type: string
+        url:
+          type: string
+          format: uri
+        events:
+          type: array
+          items:
+            type: string
+            enum: [run.completed, run.failed, run.started]
+
+    # ── Errors ────────────────────────────────────────────────────────────────
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+
+# ── Paths ─────────────────────────────────────────────────────────────────────
+
+paths:
+
+  # ── Auth ────────────────────────────────────────────────────────────────────
+
+  /api/auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new user and organization
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "200":
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login with email and password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ── Scenarios ───────────────────────────────────────────────────────────────
+
+  /api/scenarios:
+    get:
+      tags: [Scenarios]
+      summary: List all scenarios for the organization
+      responses:
+        "200":
+          description: Scenario list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ScenarioDto"
+
+    post:
+      tags: [Scenarios]
+      summary: Create a new scenario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateScenarioRequest"
+      responses:
+        "200":
+          description: Scenario created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/scenarios/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+
+    get:
+      tags: [Scenarios]
+      summary: Get scenario detail with latest content
+      responses:
+        "200":
+          description: Scenario detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScenarioDetailDto"
+        "404":
+          description: Not found
+
+    put:
+      tags: [Scenarios]
+      summary: Update scenario (creates a new version)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateScenarioRequest"
+      responses:
+        "204":
+          description: Updated successfully
+        "400":
+          description: Validation error
+
+    delete:
+      tags: [Scenarios]
+      summary: Soft-delete a scenario
+      responses:
+        "204":
+          description: Deleted
+        "400":
+          description: Scenario has active runs
+
+  /api/scenarios/{id}/versions:
+    get:
+      tags: [Scenarios]
+      summary: List all versions of a scenario
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Version list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ScenarioVersionDto"
+
+  # ── Test Runs ───────────────────────────────────────────────────────────────
+
+  /api/test-runs:
+    get:
+      tags: [Test Runs]
+      summary: List test runs
+      parameters:
+        - name: scenarioId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Run list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TestRunDto"
+
+    post:
+      tags: [Test Runs]
+      summary: Start a new test run
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartRunRequest"
+      responses:
+        "200":
+          description: Run queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+        "400":
+          description: Validation error
+
+    delete:
+      tags: [Test Runs]
+      summary: Bulk delete terminal runs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkDeleteRequest"
+      responses:
+        "200":
+          description: Deletion result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkDeleteResponse"
+
+  /api/test-runs/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+
+    get:
+      tags: [Test Runs]
+      summary: Get test run detail
+      responses:
+        "200":
+          description: Run detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestRunDto"
+        "404":
+          description: Not found
+
+    delete:
+      tags: [Test Runs]
+      summary: Soft-delete a terminal run
+      responses:
+        "204":
+          description: Deleted
+        "400":
+          description: Run is still active
+
+  /api/test-runs/{id}/cancel:
+    post:
+      tags: [Test Runs]
+      summary: Cancel a Pending or running test run
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Cancel signal sent
+        "400":
+          description: Run cannot be cancelled
+
+  /api/test-runs/{id}/retry:
+    post:
+      tags: [Test Runs]
+      summary: Retry a failed or cancelled run with same parameters
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: New run ID
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+
+  /api/test-runs/{id}/force-status:
+    post:
+      tags: [Test Runs]
+      summary: Force terminal status on a stuck run (admin action)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForceStatusRequest"
+      responses:
+        "204":
+          description: Status updated
+
+  /api/test-runs/{id}/baseline:
+    post:
+      tags: [Test Runs]
+      summary: Toggle baseline flag for a completed run
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Baseline toggled
+
+  /api/test-runs/{id}/metrics:
+    get:
+      tags: [Metrics]
+      summary: Get metric snapshots for a run (chronological)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Metric snapshot list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MetricSnapshotDto"
+
+  /api/test-runs/{runId}/notes:
+    get:
+      tags: [Run Notes]
+      summary: List notes for a run
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Note list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RunNoteDto"
+
+    post:
+      tags: [Run Notes]
+      summary: Add a note to a run
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddNoteRequest"
+      responses:
+        "200":
+          description: Note created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunNoteDto"
+
+  /api/test-runs/{runId}/notes/{noteId}:
+    delete:
+      tags: [Run Notes]
+      summary: Delete a note
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: noteId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted
+        "403":
+          description: Not the author
+
+  # ── Members ─────────────────────────────────────────────────────────────────
+
+  /api/members:
+    get:
+      tags: [Members]
+      summary: List organization members
+      responses:
+        "200":
+          description: Member list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MemberDto"
+
+  /api/members/invite:
+    post:
+      tags: [Members]
+      summary: Invite a new member (Admin+)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InviteRequest"
+      responses:
+        "200":
+          description: Invitation created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InviteResponse"
+        "400":
+          description: Already a member
+
+  /api/members/{memberId}/role:
+    patch:
+      tags: [Members]
+      summary: Update a member's role (Admin+)
+      parameters:
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRoleRequest"
+      responses:
+        "200":
+          description: Role updated
+        "400":
+          description: Cannot change Owner role
+
+  /api/members/{memberId}:
+    delete:
+      tags: [Members]
+      summary: Remove a member from the organization (Admin+)
+      parameters:
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Removed
+
+  /api/invitations/{token}/accept:
+    post:
+      tags: [Members]
+      summary: Accept an invitation and create account
+      security: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AcceptInviteRequest"
+      responses:
+        "200":
+          description: Account created; returns JWT
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Invalid or expired token
+
+  # ── API Keys ─────────────────────────────────────────────────────────────────
+
+  /api/api-keys:
+    get:
+      tags: [API Keys]
+      summary: List API keys for the organization
+      responses:
+        "200":
+          description: Key list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiKeyDto"
+
+    post:
+      tags: [API Keys]
+      summary: Create a new API key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateApiKeyRequest"
+      responses:
+        "200":
+          description: Key created (plaintextKey shown once)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateApiKeyResponse"
+
+  /api/api-keys/{id}:
+    delete:
+      tags: [API Keys]
+      summary: Revoke an API key
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Revoked
+
+  # ── Environments ─────────────────────────────────────────────────────────────
+
+  /api/environments:
+    get:
+      tags: [Environments]
+      summary: List environments
+      responses:
+        "200":
+          description: Environment list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EnvironmentDto"
+
+    post:
+      tags: [Environments]
+      summary: Create a new environment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEnvironmentRequest"
+      responses:
+        "200":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvironmentDto"
+
+  /api/environments/{id}:
+    delete:
+      tags: [Environments]
+      summary: Delete an environment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Webhooks ─────────────────────────────────────────────────────────────────
+
+  /api/webhooks:
+    get:
+      tags: [Webhooks]
+      summary: List webhooks
+      responses:
+        "200":
+          description: Webhook list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WebhookDto"
+
+    post:
+      tags: [Webhooks]
+      summary: Create a webhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWebhookRequest"
+      responses:
+        "200":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookDto"
+
+  /api/webhooks/{id}:
+    delete:
+      tags: [Webhooks]
+      summary: Delete a webhook
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted
+
+  /api/webhooks/{id}/toggle:
+    post:
+      tags: [Webhooks]
+      summary: Toggle webhook active state
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: New state
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  isActive:
+                    type: boolean
+
+  /api/webhooks/{id}/test:
+    post:
+      tags: [Webhooks]
+      summary: Send a test payload to the webhook URL
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Test response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    type: string
+
+  # ── Internal (worker → API) ──────────────────────────────────────────────────
+
+  /internal/runs/{runId}/metrics:
+    post:
+      tags: [Internal]
+      summary: Ingest metric snapshot from a Go worker shard
+      security: []
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IngestMetricsRequest"
+      responses:
+        "204":
+          description: Ingested
+
+  /internal/shards/{shardId}/heartbeat:
+    post:
+      tags: [Internal]
+      summary: Worker heartbeat — keeps shard alive
+      security: []
+      parameters:
+        - name: shardId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Heartbeat recorded
+
+  /internal/shards/{shardId}/complete:
+    post:
+      tags: [Internal]
+      summary: Worker reports shard completion with quality gate result
+      security: []
+      parameters:
+        - name: shardId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [passed]
+              properties:
+                passed:
+                  type: boolean
+                errorRate:
+                  type: number
+                p95Ms:
+                  type: integer
+                p99Ms:
+                  type: integer
+      responses:
+        "204":
+          description: Completion recorded
